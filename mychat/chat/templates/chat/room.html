@@ -1,0 +1,93 @@
+<!-- chat/templates/chat/room.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Room</title>
+</head>
+<body>
+    <p> My name: {{ chat_data.user_name }} </p>
+    <textarea id="chat-log" cols="100" rows="20" readonly="readonly">
+    </textarea><br>
+    <input id="chat-message-input" type="text" size="100"><br>
+    <input id="chat-message-submit" type="button" value="Send">
+    {{ chat_data|json_script:"chat-data" }}
+    <script>
+        const chatData = JSON.parse(document.getElementById('chat-data').textContent);
+        const checkInterval = 2000;  // 5s
+
+        function checkForMessages () {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                // readyState Holds the status of the XMLHttpRequest.
+                // 0: request not initialized
+                // 1: server connection established
+                // 2: request received
+                // 3: processing request
+                // 4: request finished and response is ready
+                if (this.readyState == 4 && this.status == 200) {
+                    // Reset waiter for next update
+                    setTimeout(checkForMessages, checkInterval);
+                    // Server returns response like
+                    //  [
+                    //   {"from": "hippo", "message": "Hello everyone!!"},
+                    //   {"from": "tori", "message": "You too ^_^"}
+                    //  ]
+                    console.log(xhttp.responseText)
+                    onMessages(xhttp.responseText)
+                }
+            }
+
+            xhttp.open("GET", "get_messages", true);
+            xhttp.send();
+        }
+        checkForMessages()
+
+
+        function onMessages (response) {
+            var messages = JSON.parse(response).history;
+            document.querySelector('#chat-log').value = "";
+            for (var i = 0; i < messages.length; i++) {
+                m = messages[i]
+                console.log(m)
+                if (m.from == chatData.user_name) {
+                    sep = " <<< "
+                } else {
+                    sep = " >>> "
+                }
+                document.querySelector('#chat-log').value += m.from + sep + m.message + "\n";
+            }
+        };
+
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    onMessages(xhttp.responseText)
+                }
+            }
+
+            xhttp.open("POST", "send_message", true);
+            xhttp.send(JSON.stringify({
+                'message': message,
+                'from': chatData['user_name']
+            }));
+
+            // Clean the input
+            messageInputDom.value = '';
+        };
+
+    </script>
+</body>
+</html>
